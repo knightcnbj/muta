@@ -76,6 +76,7 @@ pub struct ConfigMempool {
     pub broadcast_txs_size:     usize,
     #[serde(default = "default_broadcast_txs_interval")]
     pub broadcast_txs_interval: u64,
+    pub always_broadcast:       bool,
 }
 
 #[derive(Debug, Deserialize)]

@@ -201,7 +201,11 @@ pub async fn start<Mapping: 'static + ServiceMapping>(
         config.mempool.broadcast_txs_size,
         config.mempool.broadcast_txs_interval,
     );
-    let mempool = Arc::new(HashMemPool::new(consts::MEMPOOL_POOL_SIZE, mempool_adapter));
+    let mempool = Arc::new(HashMemPool::new(
+        consts::MEMPOOL_POOL_SIZE,
+        true,
+        mempool_adapter,
+    ));
 
     // self private key
     let hex_privkey = hex::decode(config.privkey.as_string_trim0x()).map_err(MainError::FromHex)?;

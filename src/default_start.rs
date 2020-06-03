@@ -210,6 +210,7 @@ pub async fn start<Mapping: 'static + ServiceMapping>(
     );
     let mempool = Arc::new(HashMemPool::new(
         config.mempool.pool_size as usize,
+        config.mempool.always_broadcast,
         mempool_adapter,
     ));
 

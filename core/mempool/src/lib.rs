@@ -48,13 +48,15 @@ pub struct HashMemPool<Adapter: MemPoolAdapter> {
     adapter:        Arc<Adapter>,
     /// exclusive flush_memory and insert_tx to avoid repeat txs insertion.
     flush_lock:     RwLock<()>,
+
+    always_broadcast: bool,
 }
 
 impl<Adapter: 'static> HashMemPool<Adapter>
 where
     Adapter: MemPoolAdapter,
 {
-    pub fn new(pool_size: usize, adapter: Adapter) -> Self {
+    pub fn new(pool_size: usize, always_broadcast: bool, adapter: Adapter) -> Self {
         HashMemPool {
             pool_size,
             timeout_gap: AtomicU64::new(0),
@@ -62,6 +64,7 @@ where
             callback_cache: Arc::new(Map::new(pool_size)),
             adapter: Arc::new(adapter),
             flush_lock: RwLock::new(()),
+            always_broadcast,
         }
     }
 
@@ -98,6 +101,25 @@ where
     ) -> ProtocolResult<()> {
         let _lock = self.flush_lock.read().await;
 
+        let insert_res = self.catch_insert_tx(ctx.clone(), tx.clone(), tx_type).await;
+
+        if !ctx.is_network_origin_txs() {
+            if insert_res.is_ok() || self.always_broadcast {
+                self.adapter.broadcast_tx(ctx, tx).await?;
+            }
+        } else if insert_res.is_ok() {
+            self.adapter.report_good(ctx);
+        }
+
+        insert_res
+    }
+
+    async fn catch_insert_tx(
+        &self,
+        ctx: Context,
+        tx: SignedTransaction,
+        tx_type: TxType,
+    ) -> ProtocolResult<()> {
         let tx_hash = &tx.tx_hash;
         self.tx_cache.check_reach_limit(self.pool_size).await?;
         self.tx_cache.check_exist(tx_hash).await?;
@@ -114,12 +136,6 @@ where
         match tx_type {
             TxType::NewTx => self.tx_cache.insert_new_tx(tx.clone()).await?,
             TxType::ProposeTx => self.tx_cache.insert_propose_tx(tx.clone()).await?,
-        }
-
-        if !ctx.is_network_origin_txs() {
-            self.adapter.broadcast_tx(ctx, tx).await?;
-        } else {
-            self.adapter.report_good(ctx);
         }
 
         Ok(())

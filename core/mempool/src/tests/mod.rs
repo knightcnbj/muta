@@ -121,7 +121,7 @@ fn new_mempool(
     max_tx_size: u64,
 ) -> HashMemPool<HashMemPoolAdapter> {
     let adapter = HashMemPoolAdapter::new();
-    let mempool = HashMemPool::new(pool_size, adapter);
+    let mempool = HashMemPool::new(pool_size, false, adapter);
     mempool.set_args(timeout_gap, cycles_limit, max_tx_size);
     mempool
 }
